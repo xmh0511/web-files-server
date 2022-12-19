@@ -54,7 +54,7 @@
 			<button class="uk-offcanvas-close" type="button" uk-close></button>
 			<h3>文件上传</h3>
 			<div>
-				<div class="js-upload uk-placeholder uk-text-center">
+				<div id="file-drop-upload" class="js-upload uk-placeholder uk-text-center">
 					<span uk-icon="icon: cloud-upload"></span>
 					<span class="uk-text-middle">拖动文件到这里</span>
 					<div uk-form-custom>
@@ -193,7 +193,7 @@
 	var bar = document.getElementById('js-progressbar');
 	let current_path = `{{info.path | safe}}`;
 
-	UIkit.upload('.js-upload', {
+	let upload_component = UIkit.upload('.js-upload', {
 		url: '{{baseUrl | safe }}upload',
 		multiple: true,
 		params: { path: "{{info.path | safe}}" },
@@ -256,7 +256,7 @@
 		}
 
 	});
-	function getMenuPos(left,top,dom){
+	function getMenuPos(left, top, dom) {
 		let menuHeight = dom.height();
 		let menuWidth = dom.width() + 30;
 		//console.log(menuWidth);
@@ -264,7 +264,7 @@
 			top = 0;
 		}
 		if ((top + menuHeight + 20) > window.innerHeight) {
-			let remain = (top + menuHeight + 20) - window.innerHeight ;
+			let remain = (top + menuHeight + 20) - window.innerHeight;
 			console.log(remain);
 			top = window.innerHeight - remain - menuHeight - 30;
 		}
@@ -275,7 +275,7 @@
 			let remain = (left + menuWidth) - window.innerWidth;
 			left = left - remain;
 		}
-		return {left,top};
+		return { left, top };
 	}
 	$("html").off("click").on("click", function (e) {
 		//e.preventDefault();
@@ -289,13 +289,13 @@
 		e.preventDefault();
 		$("#file-context-menu").hide();
 		$("#dir-context-menu").hide();
-		if ($(e.currentTarget).hasClass("item-in-list")){
+		if ($(e.currentTarget).hasClass("item-in-list")) {
 			return false;
 		}
 		let o_left = e.pageX;
 		let o_top = e.pageY;
 		let dom = $("#blank-context-menu");
-		let {left,top} = getMenuPos(o_left,o_top,dom);
+		let { left, top } = getMenuPos(o_left, o_top, dom);
 		$("#blank-context-menu").css({ "top": `${top}px`, "left": `${left}px` }).show();
 		return false;
 	}
@@ -303,11 +303,11 @@
 		e.preventDefault();
 		$("#file-context-menu").hide();
 		$("#blank-context-menu").hide();
-		$("#dir-context-menu").attr("data-index",$(e.currentTarget).attr("data-index"));
+		$("#dir-context-menu").attr("data-index", $(e.currentTarget).attr("data-index"));
 		let o_left = e.pageX;
 		let o_top = e.pageY;
 		let dom = $("#dir-context-menu");
-		let {left,top} = getMenuPos(o_left,o_top,dom);
+		let { left, top } = getMenuPos(o_left, o_top, dom);
 		$("#dir-context-menu").css({ "top": `${top}px`, "left": `${left}px` }).show();
 		return false;
 	});
@@ -319,11 +319,11 @@
 		let o_left = e.pageX;
 		let o_top = e.pageY;
 		let dom = $("#file-context-menu");
-		let {left,top} = getMenuPos(o_left,o_top,dom);
-		let index = parseInt( $(e.currentTarget).attr("data-index"));
+		let { left, top } = getMenuPos(o_left, o_top, dom);
+		let index = parseInt($(e.currentTarget).attr("data-index"));
 		let files = model_data.files;
 		let file = files[index].name;
-		dom.find("#preview-href").attr("href",`{{baseUrl | safe }}pseduo/..${current_path}${file}?preview=true`);
+		dom.find("#preview-href").attr("href", `{{baseUrl | safe }}pseduo/..${current_path}${file}?preview=true`);
 		$("#file-context-menu").attr("data-index", index);
 		$("#file-context-menu").css({ "top": `${top}px`, "left": `${left}px` }).show();
 		return false;
@@ -337,27 +337,27 @@
 		$("#file-info").find("#file-time").text(files[index].modified_time);
 		UIkit.modal($("#file-info")).show();
 	}
-	function openRenameFile(){
+	function openRenameFile() {
 		$("#file-context-menu").hide();
 		let index = parseInt($("#file-context-menu").attr("data-index"));
 		let files = model_data.files;
 		let o_name = files[index].name;
 		$("#rename-file-dialog").find("#file-rename").val(o_name);
-		$("#rename-file-dialog").attr("data-index",index);
+		$("#rename-file-dialog").attr("data-index", index);
 		UIkit.modal($("#rename-file-dialog")).show();
 	}
 
-	function openRenameDir(){
+	function openRenameDir() {
 		$("#dir-context-menu").hide();
 		let index = parseInt($("#dir-context-menu").attr("data-index"));
 		let dirs = model_data.dirs;
 		let o_name = dirs[index].name;
 		$("#rename-dir-dialog").find("#dir-rename").val(o_name);
-		$("#rename-dir-dialog").attr("data-index",index);
+		$("#rename-dir-dialog").attr("data-index", index);
 		UIkit.modal($("#rename-dir-dialog")).show();
 	}
 
-	function RenameFile(){
+	function RenameFile() {
 		let index = parseInt($("#rename-file-dialog").attr("data-index"));
 		let files = model_data.files;
 		let o_name = files[index].name;
@@ -368,7 +368,7 @@
 			type: 'POST',
 			dataType: 'json',
 			//data: JSON.stringify({data:{status: "start"}}),
-			data: { o_name,n_name, path },
+			data: { o_name, n_name, path },
 			//data:{name:"a.jpeg",path:"/views/"},
 			cache: false,
 			headers: {
@@ -389,7 +389,7 @@
 		});
 	}
 
-	function RenameDir(){
+	function RenameDir() {
 		let index = parseInt($("#rename-dir-dialog").attr("data-index"));
 		let dirs = model_data.dirs;
 		let o_name = dirs[index].name;
@@ -400,7 +400,7 @@
 			type: 'POST',
 			dataType: 'json',
 			//data: JSON.stringify({data:{status: "start"}}),
-			data: { o_name,n_name, path },
+			data: { o_name, n_name, path },
 			//data:{name:"a.jpeg",path:"/views/"},
 			cache: false,
 			headers: {
@@ -424,7 +424,7 @@
 	function deleteFile() {
 		$("#file-context-menu").hide();
 		let r = confirm("确定删除吗？");
-		if (!r){
+		if (!r) {
 			return;
 		}
 		let index = parseInt($("#file-context-menu").attr("data-index"));
@@ -455,10 +455,10 @@
 			}
 		});
 	}
-	function createDir(){
+	function createDir() {
 		let name = $("#create_dir_name").val();
 		name = name.trim();
-		if (name === ""){
+		if (name === "") {
 			UIkit.notification(`目录名不能为空`);
 			return;
 		}
@@ -467,7 +467,7 @@
 			type: 'POST',
 			dataType: 'json',
 			//data: JSON.stringify({data:{status: "start"}}),
-			data: { "dir_name": name, path:current_path },
+			data: { "dir_name": name, path: current_path },
 			//data:{name:"a.jpeg",path:"/views/"},
 			cache: false,
 			headers: {
@@ -486,7 +486,7 @@
 			}
 		});
 	}
-	function openCreateDir(){
+	function openCreateDir() {
 		$("#create_dir_name").val("");
 		UIkit.modal($("#create-dir-dialog")).show();
 	}
@@ -494,7 +494,7 @@
 	function deleteDir() {
 		$("#dir-context-menu").hide();
 		let r = confirm("确定删除吗？");
-		if (!r){
+		if (!r) {
 			return;
 		}
 		let index = parseInt($("#dir-context-menu").attr("data-index"));
@@ -527,7 +527,7 @@
 		});
 	}
 
-	function dirDetail(){
+	function dirDetail() {
 		let index = parseInt($("#dir-context-menu").attr("data-index"));
 		console.log(index);
 		let dirs = model_data.dirs;
@@ -536,11 +536,42 @@
 		$("#dir-info").find("#detail-dir-time").text(dirs[index].modified_time);
 		UIkit.modal($("#dir-info")).show();
 	}
+
+	$(function () {
+		$(document).on({
+			dragleave: function (e) {    //拖离 
+				e.preventDefault();
+				//console.log("dragleave");
+				//console.log(e.originalEvent);
+			},
+			drop: function (e) {  //拖后放 
+				e.preventDefault();
+				//console.log("drop");
+				//console.log(upload_component);
+				//console.log(e.originalEvent.dataTransfer);
+				// document.getElementById("file-drop-upload").dispatchEvent(new DragEvent('drop'),{
+				// 	originalEvent:{
+				// 		dataTransfer:e.originalEvent.dataTransfer
+				// 	}
+				// });
+			},
+			dragenter: function (e) {    //拖进 
+				e.preventDefault();
+				//console.log("dragenter");
+				UIkit.offcanvas("#offcanvas-flip").show();
+			},
+			dragover: function (e) {    //拖来拖去 
+				e.preventDefault();
+				//console.log("dragover")
+			}
+		});
+	})
 </script>
 <style>
-	body{
+	body {
 		overflow: hidden;
 	}
+
 	.icon-line {
 		margin-bottom: 3px;
 		text-align: center;
@@ -571,7 +602,9 @@
 		bottom: 25%;
 	}
 
-	#file-context-menu, #blank-context-menu,#dir-context-menu {
+	#file-context-menu,
+	#blank-context-menu,
+	#dir-context-menu {
 		display: none;
 		width: 100px;
 		position: absolute;

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>File-Manager</title>
+	<script src="/public/uikit/js/uikit.min.js"></script>
+	<script src="/public/uikit/js/uikit-icons.min.js"></script>
+	<link rel="stylesheet" href="/public/uikit/css/uikit.min.css" />
+	<script src="http://libs.baidu.com/jquery/2.0.0/jquery.min.js"></script>
+</head>
+
+<body>
+	<div>
+		{% if info.dirs | length > 0 or info.files | length > 0 %}
+		<div class="">
+			{% for dir in info.dirs %}
+			<div class="item-in-list dir-item">
+				<a href="{{info.path}}{{dir.name}}">
+					<p class="icon-line">
+						<span uk-icon="icon: folder; ratio: 2"></span>
+					</p>
+					<p class="name-line">{{dir.name}}</p>
+				</a>
+			</div>
+			{% endfor %}
+			{% for file in info.files %}
+			<div class="item-in-list file-item" data-index="{{loop.index0}}">
+				<a href="{{info.path}}{{file.name}}">
+					<p class="icon-line">
+						<span uk-icon="icon: file; ratio: 2"></span>
+					</p>
+					<p class="name-line">{{file.name}}</p>
+				</a>
+			</div>
+			{% endfor %}
+		</div>
+		{% else %}
+		<div>
+			<p class="icon-line">
+				<span uk-icon="icon: question; ratio: 4"></span>
+			</p>
+			<p class="name-line">Empty</p>
+		</div>
+		{% endif %}
+	</div>
+	<a href="" class="fixed-right uk-icon-button uk-margin-small-right" uk-icon="icon:cloud-upload;ratio:8"
+		uk-toggle="target: #offcanvas-flip"></a>
+	<div id="offcanvas-flip" uk-offcanvas="flip: true; overlay: true">
+		<div class="uk-offcanvas-bar">
+			<button class="uk-offcanvas-close" type="button" uk-close></button>
+			<h3>文件上传</h3>
+			<div>
+				<div class="js-upload uk-placeholder uk-text-center">
+					<span uk-icon="icon: cloud-upload"></span>
+					<span class="uk-text-middle">拖动文件到这里</span>
+					<div uk-form-custom>
+						<input type="file" multiple>
+						<span class="uk-link">点击选择</span>
+					</div>
+				</div>
+				<progress id="js-progressbar" class="uk-progress" value="0" max="100" hidden></progress>
+			</div>
+		</div>
+	</div>
+
+
+	<div id="file-context-menu" class="uk-width-1-2@s uk-width-2-5@m">
+		<ul class="uk-nav uk-nav-default">
+			<li><a href="javascript:void(0)" onclick="fileDetail()">详细信息</a></li>
+			<li><a href="javascript:void(0)" onclick="deleteFile()">删除</a></li>
+			<li><a href="#">重命名</a></li>
+		</ul>
+	</div>
+
+	<div id="file-info" uk-modal>
+		<div class="uk-modal-dialog uk-modal-body">
+			<button class="uk-modal-close-default" type="button" uk-close></button>
+			<h2 class="uk-modal-title">详细信息</h2>
+			<div class="info-list">
+				<div>
+					<span>名称</span>
+					<span id="file-name"></span>
+				</div>
+				<div>
+					<span>修改时间</span>
+					<span id="file-time"></span>
+				</div>
+				<div>
+					<span>文件大小</span>
+					<span id="file-size"></span>
+					<span>kb</span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</body>
+<script>
+	var bar = document.getElementById('js-progressbar');
+
+	UIkit.upload('.js-upload', {
+		url: '/upload',
+		multiple: true,
+		params: { path: "{{info.path | safe}}" },
+		name: "file",
+		multiple: true,
+
+		beforeSend: function () {
+			console.log('beforeSend', arguments);
+		},
+		beforeAll: function () {
+			console.log('beforeAll', arguments);
+		},
+		load: function () {
+			console.log('load', arguments);
+		},
+		error: function () {
+			console.log('error', arguments);
+		},
+		complete: function () {
+			console.log('complete', arguments);
+		},
+
+		loadStart: function (e) {
+			console.log('loadStart', arguments);
+
+			bar.removeAttribute('hidden');
+			bar.max = e.total;
+			bar.value = e.loaded;
+		},
+
+		progress: function (e) {
+			console.log('progress', arguments);
+
+			bar.max = e.total;
+			bar.value = e.loaded;
+		},
+
+		loadEnd: function (e) {
+			console.log('loadEnd', arguments);
+
+			bar.max = e.total;
+			bar.value = e.loaded;
+		},
+
+		completeAll: function (e) {
+			if (e.status === 200) {
+				let json = JSON.parse(e.responseText);
+				if (json.code === 200) {
+					UIkit.notification('上传成功');
+					setTimeout(() => {
+						window.location.reload();
+					}, 500);
+				} else if (json.code = 404) {
+					UIkit.notification(`${json.msg}`);
+				}
+			}
+			//window.location.reload();
+
+			//alert('Upload Completed');
+		}
+
+	});
+	document.oncontextmenu = function (e) {
+		console.log(e);
+		return false;
+	}
+	$(".dir-item").off("contextmenu").on("contextmenu", function (e) {
+		e.preventDefault();
+		console.log("dir", e);
+		return false;
+	});
+	$(".file-item").off("contextmenu").on("contextmenu", function (e) {
+		e.preventDefault();
+		console.log("file", e);
+		let left = e.pageX;
+		let top = e.pageY;
+		let dom = $("#file-context-menu");
+		let menuHeight = dom.height();
+		let menuWidth = dom.width();
+		console.log(menuWidth, menuHeight);
+		if (top < 0) {
+			top = 0;
+		}
+		if (top + menuHeight > window.innerHeight) {
+			let remain = window.innerHeight - (top + menuHeight);
+			top = top - remain;
+		}
+		if (left < 0) {
+			left = 0;
+		}
+		if (left + menuWidth > window.innerWidth) {
+			let remain = (left + menuWidth) - window.innerWidth;
+			left = left - remain;
+		}
+
+		$("#file-context-menu").attr("data-index", $(e.currentTarget).attr("data-index"));
+		$("#file-context-menu").css({ "top": `${top}px`, "left": `${left}px` }).show();
+		return false;
+	});
+	$("html").off("click").on("click", function (e) {
+		//e.preventDefault();
+		$("#file-context-menu").hide();
+	});
+
+	function fileDetail() {
+		let index = $("#file-context-menu").attr("data-index");
+		let files = JSON.parse(`{{info.files | json_encode() | safe }}`);
+		$("#file-info").find("#file-name").text(files[index].name);
+		$("#file-info").find("#file-size").text(files[index].size);
+		$("#file-info").find("#file-time").text(files[index].modified_time);
+		UIkit.modal($("#file-info")).show();
+	}
+	function deleteFile() {
+		let index = $("#file-context-menu").attr("data-index");
+		let files = JSON.parse(`{{info.files | json_encode() | safe }}`);
+		let file = files[index].name;
+		let path = `{{info.path | safe}}`;
+		$.ajax({
+			url: '/delete',
+			type: 'POST',
+			dataType: 'json',
+			//data: JSON.stringify({data:{status: "start"}}),
+			data: { name: file, path },
+			//data:{name:"a.jpeg",path:"/views/"},
+			cache: false,
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'  //multipart/form-data;boundary=--xxxxxxx   application/json
+			},
+			success: function (res) {
+				console.log(res);
+				if (res.code === 200) {
+					window.location.reload();
+				} else {
+					UIkit.notification(`${res.msg}`);
+				}
+			},
+			error: function (e) {
+
+			}
+		});
+	}
+</script>
+<style>
+	.icon-line {
+		margin-bottom: 3px;
+		text-align: center;
+	}
+
+	.name-line {
+		color: black;
+		margin-top: 3px;
+		margin-bottom: 0px;
+		text-align: center;
+		font-size: 13px;
+		text-overflow: ellipsis;
+		word-wrap: normal;
+		overflow: hidden;
+	}
+
+	.item-in-list {
+		float: left;
+		width: 105px;
+		height: 75px;
+		overflow: hidden;
+	}
+
+	.fixed-right {
+		position: fixed;
+		right: 0px;
+		bottom: 25%;
+	}
+
+	#file-context-menu {
+		display: none;
+		width: 100px;
+		position: absolute;
+		z-index: 999;
+		background-color: white;
+		padding: 10px 10px 10px 10px;
+		border: 1px solid #CCC;
+	}
+
+	.info-list div {
+		margin-bottom: 5px;
+	}
+</style>
+
+</html>

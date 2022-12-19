@@ -555,6 +555,7 @@
 		text-overflow: ellipsis;
 		word-wrap: normal;
 		overflow: hidden;
+		white-space: nowrap;
 	}
 
 	.item-in-list {
@@ -582,6 +583,12 @@
 
 	.info-list div {
 		margin-bottom: 5px;
+	}
+	progress{
+		text-align: center;
+	}
+	progress:after{
+		content:attr(value)'%';
 	}
 </style>
 

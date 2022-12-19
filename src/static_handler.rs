@@ -421,7 +421,8 @@ impl FileInfo {
 struct DirInfo {
     name: String,
     modified: OffsetDateTime,
-	modified_time:String
+	modified_time:String,
+	size:u64
 }
 impl DirInfo {
     #[inline]
@@ -432,7 +433,8 @@ impl DirInfo {
         DirInfo {
             name,
             modified: time.into(),
-			modified_time:datetime
+			modified_time:datetime,
+			size:metadata.len()
         }
     }
 }

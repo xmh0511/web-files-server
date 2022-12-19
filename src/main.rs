@@ -92,6 +92,8 @@ async fn handle_static(
     res: &mut Response,
     _depot: &mut Depot,
 ) -> Result<(), AnyHowErrorWrapper> {
+	let is_preview = req.query::<bool>("preview").unwrap_or(false);
+	//println!("is_preview = {is_preview}");
     let r = static_handler::StaticDir::new("static").with_listing(true);
     let v: Result<
         static_handler::ResponseContent<
@@ -104,7 +106,9 @@ async fn handle_static(
             static_handler::ResponseContent::File(mut file) => {
                 let path = file.path();
                 let file_name = path.file_name().unwrap().to_str().to_owned().unwrap();
-                let content_disposition = format!("attachment; filename={}", file_name)
+                let content_disposition = if is_preview{
+					format!("inline")
+				}else{format!("attachment; filename={}", file_name)} 
                     .parse::<HeaderValue>()
                     .unwrap();
                 file.set_content_disposition(content_disposition);
@@ -115,14 +119,16 @@ async fn handle_static(
                 //let tera = depot.get::<Tera>("tera").unwrap();
                 let mut context = tera::Context::new();
                 context.insert("info", &list);
+				context.insert("baseUrl", "/");
                 //println!("invocation {context:?}");
                 let mut tera = Tera::default();
                 tera.add_template_file("views/list.html", Some("list.html"))?;
                 let r = match tera.render("list.html", &context) {
                     Ok(r) => r,
                     Err(e) => {
-                        println!("{e:?}");
-                        panic!("error")
+                        //println!("{e:?}");
+                        //panic!("error")
+						return Err(anyhow::anyhow!("tera render error: {e:?}").into());
                     }
                 };
                 res.render(Text::Html(r));
@@ -153,7 +159,7 @@ async fn upload(req: &mut Request, res: &mut Response) -> Result<(), AnyHowError
         },
     };
     let origin_name = file.name().result()?;
-    println!("{path}, {origin_name}");
+    //println!("{path}, {origin_name}");
     let complete_path = validate_path(&path,origin_name)?;
     if complete_path.exists(){
         return Err(anyhow::anyhow!("object has been existed").into());
@@ -192,7 +198,7 @@ fn validate_path<const JSON:bool>(prefix_path:&str, target:&str)->Result<PathBuf
     let complete_path = format!("{path}{target}");
     let complete_path = Path::new(&complete_path);
     let absolute_path = complete_path.absolutize()?.to_str().result()?.to_string();
-    println!("{absolute_path}");
+    //println!("{absolute_path}");
     let canonical_path = Path::new(&absolute_path);
     let static_path = Path::new("static").canonicalize()?;
     let is_contain = canonical_path.starts_with(static_path);
@@ -203,6 +209,22 @@ fn validate_path<const JSON:bool>(prefix_path:&str, target:&str)->Result<PathBuf
     Ok(r)
 }
 
+
+#[handler]
+async fn create_directory(req: &mut Request, res: &mut Response)->Result<(), AnyHowErrorWrapper<true>>{
+	let path = req.form::<String>("path").await.result()?;
+    let dir_name = req.form::<String>("dir_name").await.result()?;
+	let complete_path = validate_path(&path,&dir_name)?;
+	if complete_path.exists(){
+        return Err(anyhow::anyhow!("object has been existed").into());
+    }
+	let _ = std::fs::create_dir_all(complete_path)?;
+	let json = json!({
+		"code":200
+	});
+	res.render(Text::Json(json.to_string()));
+	Ok(())
+}
 
 #[handler]
 async fn delete(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorWrapper<true>>{
@@ -216,12 +238,49 @@ async fn delete(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorW
         }else{
             std::fs::remove_dir_all(complete_path)?;
         }
-    }
-    let json = json!({
-        "code":200,
-    });
-    res.render(Text::Json(json.to_string()));
+		let json = json!({
+			"code":200,
+		});
+		res.render(Text::Json(json.to_string()));
+    }else{
+		let json = json!({
+			"code":404,
+			"msg":"不存在该文件对象"
+		});
+		res.render(Text::Json(json.to_string()));
+	}
     Ok(())
+}
+
+#[handler]
+async fn rename(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorWrapper<true>>{
+	let o_name = req.form::<String>("o_name").await.result()?;
+	let n_name = req.form::<String>("n_name").await.result()?;
+    let path = req.form::<String>("path").await.result()?;
+	let o_complete_path = validate_path(&path, &o_name)?;
+	let n_complete_path = validate_path(&path, &n_name)?;
+	if o_complete_path.exists(){
+		if n_complete_path.exists(){
+			let json = json!({
+				"code":404,
+				"msg":"与其他文件对象重名"
+			});
+			res.render(Text::Json(json.to_string()));
+		}else{
+            std::fs::rename(o_complete_path, n_complete_path)?;
+			let json = json!({
+				"code":200,
+			});
+			res.render(Text::Json(json.to_string()));
+		}
+	}else{
+		let json = json!({
+			"code":404,
+			"msg":"不存在该文件对象"
+		});
+		res.render(Text::Json(json.to_string()));
+	}
+	Ok(())
 }
 
 #[tokio::main]
@@ -238,6 +297,8 @@ async fn main() {
     let web_file_router = Router::with_path("static/<**>").get(handle_static);
 	let upload_router  = Router::with_path("upload").post(upload);
     let delete_router = Router::with_path("delete").post(delete);
+	let createdir_router = Router::with_path("createdir").post(create_directory);
+	let rename_router = Router::with_path("rename").post(rename);
 
 	
     let require_validate_router = Router::new().hoop(auth_handler);
@@ -245,6 +306,8 @@ async fn main() {
     let require_validate_router = require_validate_router.push(web_file_router);
 	let require_validate_router = require_validate_router.push(upload_router);
     let require_validate_router = require_validate_router.push(delete_router);
+	let require_validate_router = require_validate_router.push(createdir_router);
+	let require_validate_router = require_validate_router.push(rename_router);
 
 	let root_router = Router::new().push(require_validate_router);
 	//let root_router = root_router.push(upload_router);

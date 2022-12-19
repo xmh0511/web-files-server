@@ -6,9 +6,9 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>File-Manager</title>
-	<script src="/public/uikit/js/uikit.min.js"></script>
-	<script src="/public/uikit/js/uikit-icons.min.js"></script>
-	<link rel="stylesheet" href="/public/uikit/css/uikit.min.css" />
+	<script src="{{baseUrl | safe }}public/uikit/js/uikit.min.js"></script>
+	<script src="{{baseUrl | safe }}public/uikit/js/uikit-icons.min.js"></script>
+	<link rel="stylesheet" href="{{baseUrl | safe }}public/uikit/css/uikit.min.css" />
 	<script src="http://libs.baidu.com/jquery/2.0.0/jquery.min.js"></script>
 </head>
 
@@ -17,8 +17,8 @@
 		{% if info.dirs | length > 0 or info.files | length > 0 %}
 		<div class="">
 			{% for dir in info.dirs %}
-			<div class="item-in-list dir-item">
-				<a href="{{info.path}}{{dir.name}}">
+			<div class="item-in-list dir-item" data-index="{{loop.index0}}">
+				<a href="{{baseUrl | safe }}pseduo/..{{info.path}}{{dir.name}}">
 					<p class="icon-line">
 						<span uk-icon="icon: folder; ratio: 2"></span>
 					</p>
@@ -28,7 +28,7 @@
 			{% endfor %}
 			{% for file in info.files %}
 			<div class="item-in-list file-item" data-index="{{loop.index0}}">
-				<a href="{{info.path}}{{file.name}}">
+				<a href="{{baseUrl | safe }}pseduo/..{{info.path}}{{file.name}}">
 					<p class="icon-line">
 						<span uk-icon="icon: file; ratio: 2"></span>
 					</p>
@@ -69,10 +69,29 @@
 
 	<div id="file-context-menu" class="uk-width-1-2@s uk-width-2-5@m">
 		<ul class="uk-nav uk-nav-default">
+			<li><a target="_blank" id="preview-href" href="">预览</a></li>
 			<li><a href="javascript:void(0)" onclick="fileDetail()">详细信息</a></li>
 			<li><a href="javascript:void(0)" onclick="deleteFile()">删除</a></li>
-			<li><a href="#">重命名</a></li>
+			<li><a href="javascript:void(0)" onclick="openRenameFile()">重命名</a></li>
 		</ul>
+	</div>
+
+
+	<div id="rename-file-dialog" uk-modal>
+		<div class="uk-modal-dialog uk-modal-body">
+			<button class="uk-modal-close-default" type="button" uk-close></button>
+			<h2 class="uk-modal-title">重命名</h2>
+			<div class="info-list">
+				<div>
+					<span>名称</span>
+					<input id="file-rename" class="uk-input uk-form-width-medium" type="text" placeholder="文件名">
+				</div>
+			</div>
+			<p class="uk-text-right">
+				<button class="uk-button uk-button-primary" type="button" onclick="RenameFile()">确定</button>
+				<button class="uk-button uk-button-default uk-modal-close" type="button">取消</button>
+			</p>
+		</div>
 	</div>
 
 	<div id="file-info" uk-modal>
@@ -97,12 +116,84 @@
 		</div>
 	</div>
 
+	<div id="create-dir-dialog" uk-modal>
+		<div class="uk-modal-dialog uk-modal-body">
+			<button class="uk-modal-close-default" type="button" uk-close></button>
+			<h2 class="uk-modal-title">创建目录</h2>
+			<div class="info-list">
+				<div>
+					<span>名称</span>
+					<input id="create_dir_name" class="uk-input uk-form-width-medium" type="text" placeholder="目录名">
+				</div>
+			</div>
+			<p class="uk-text-right">
+				<button class="uk-button uk-button-primary" type="button" onclick="createDir()">确定</button>
+				<button class="uk-button uk-button-default uk-modal-close" type="button">取消</button>
+			</p>
+		</div>
+	</div>
+
+	<div id="blank-context-menu" class="uk-width-1-2@s uk-width-2-5@m">
+		<ul class="uk-nav uk-nav-default">
+			<li><a href="javascript:void(0)" onclick="openCreateDir()">创建目录</a></li>
+		</ul>
+	</div>
+
+	<div id="dir-context-menu" class="uk-width-1-2@s uk-width-2-5@m">
+		<ul class="uk-nav uk-nav-default">
+			<li><a href="javascript:void(0)" onclick="dirDetail()">详细信息</a></li>
+			<li><a href="javascript:void(0)" onclick="deleteDir()">删除</a></li>
+			<li><a href="javascript:void(0)" onclick="openRenameDir()">重命名</a></li>
+		</ul>
+	</div>
+
+	<div id="dir-info" uk-modal>
+		<div class="uk-modal-dialog uk-modal-body">
+			<button class="uk-modal-close-default" type="button" uk-close></button>
+			<h2 class="uk-modal-title">详细信息</h2>
+			<div class="info-list">
+				<div>
+					<span>名称</span>
+					<span id="detail-dir-name"></span>
+				</div>
+				<div>
+					<span>修改时间</span>
+					<span id="detail-dir-time"></span>
+				</div>
+				<div>
+					<span>文件大小</span>
+					<span id="detail-dir-size"></span>
+					<span>kb</span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="rename-dir-dialog" uk-modal>
+		<div class="uk-modal-dialog uk-modal-body">
+			<button class="uk-modal-close-default" type="button" uk-close></button>
+			<h2 class="uk-modal-title">重命名</h2>
+			<div class="info-list">
+				<div>
+					<span>名称</span>
+					<input id="dir-rename" class="uk-input uk-form-width-medium" type="text" placeholder="目录名">
+				</div>
+			</div>
+			<p class="uk-text-right">
+				<button class="uk-button uk-button-primary" type="button" onclick="RenameDir()">确定</button>
+				<button class="uk-button uk-button-default uk-modal-close" type="button">取消</button>
+			</p>
+		</div>
+	</div>
+
 </body>
 <script>
+	let model_data = JSON.parse(`{{info | json_encode() | safe }}`);
 	var bar = document.getElementById('js-progressbar');
+	let current_path = `{{info.path | safe}}`;
 
 	UIkit.upload('.js-upload', {
-		url: '/upload',
+		url: '{{baseUrl | safe }}upload',
 		multiple: true,
 		params: { path: "{{info.path | safe}}" },
 		name: "file",
@@ -164,30 +255,17 @@
 		}
 
 	});
-	document.oncontextmenu = function (e) {
-		console.log(e);
-		return false;
-	}
-	$(".dir-item").off("contextmenu").on("contextmenu", function (e) {
-		e.preventDefault();
-		console.log("dir", e);
-		return false;
-	});
-	$(".file-item").off("contextmenu").on("contextmenu", function (e) {
-		e.preventDefault();
-		console.log("file", e);
-		let left = e.pageX;
-		let top = e.pageY;
-		let dom = $("#file-context-menu");
+	function getMenuPos(left,top,dom){
 		let menuHeight = dom.height();
-		let menuWidth = dom.width();
-		console.log(menuWidth, menuHeight);
+		let menuWidth = dom.width() + 30;
+		//console.log(menuWidth);
 		if (top < 0) {
 			top = 0;
 		}
-		if (top + menuHeight > window.innerHeight) {
-			let remain = window.innerHeight - (top + menuHeight);
-			top = top - remain;
+		if ((top + menuHeight + 20) > window.innerHeight) {
+			let remain = (top + menuHeight + 20) - window.innerHeight ;
+			console.log(remain);
+			top = window.innerHeight - remain - menuHeight - 30;
 		}
 		if (left < 0) {
 			left = 0;
@@ -196,31 +274,164 @@
 			let remain = (left + menuWidth) - window.innerWidth;
 			left = left - remain;
 		}
+		return {left,top};
+	}
+	$("html").off("click").on("click", function (e) {
+		//e.preventDefault();
+		//console.log("11111111");
+		$("#file-context-menu").hide();
+		$("#blank-context-menu").hide();
+		$("#dir-context-menu").hide();
+	});
 
-		$("#file-context-menu").attr("data-index", $(e.currentTarget).attr("data-index"));
+	document.oncontextmenu = function (e) {
+		e.preventDefault();
+		$("#file-context-menu").hide();
+		$("#dir-context-menu").hide();
+		if ($(e.currentTarget).hasClass("item-in-list")){
+			return false;
+		}
+		let o_left = e.pageX;
+		let o_top = e.pageY;
+		let dom = $("#blank-context-menu");
+		let {left,top} = getMenuPos(o_left,o_top,dom);
+		$("#blank-context-menu").css({ "top": `${top}px`, "left": `${left}px` }).show();
+		return false;
+	}
+	$(".dir-item").off("contextmenu").on("contextmenu", function (e) {
+		e.preventDefault();
+		$("#file-context-menu").hide();
+		$("#blank-context-menu").hide();
+		$("#dir-context-menu").attr("data-index",$(e.currentTarget).attr("data-index"));
+		let o_left = e.pageX;
+		let o_top = e.pageY;
+		let dom = $("#dir-context-menu");
+		let {left,top} = getMenuPos(o_left,o_top,dom);
+		$("#dir-context-menu").css({ "top": `${top}px`, "left": `${left}px` }).show();
+		return false;
+	});
+	$(".file-item").off("contextmenu").on("contextmenu", function (e) {
+		e.preventDefault();
+		$("#blank-context-menu").hide();
+		$("#dir-context-menu").hide();
+		//console.log("file", e);
+		let o_left = e.pageX;
+		let o_top = e.pageY;
+		let dom = $("#file-context-menu");
+		let {left,top} = getMenuPos(o_left,o_top,dom);
+		let index = parseInt( $(e.currentTarget).attr("data-index"));
+		let files = model_data.files;
+		let file = files[index].name;
+		dom.find("#preview-href").attr("href",`{{baseUrl | safe }}pseduo/..${current_path}${file}?preview=true`);
+		$("#file-context-menu").attr("data-index", index);
 		$("#file-context-menu").css({ "top": `${top}px`, "left": `${left}px` }).show();
 		return false;
 	});
-	$("html").off("click").on("click", function (e) {
-		//e.preventDefault();
-		$("#file-context-menu").hide();
-	});
 
 	function fileDetail() {
-		let index = $("#file-context-menu").attr("data-index");
-		let files = JSON.parse(`{{info.files | json_encode() | safe }}`);
+		let index = parseInt($("#file-context-menu").attr("data-index"));
+		let files = model_data.files;
 		$("#file-info").find("#file-name").text(files[index].name);
 		$("#file-info").find("#file-size").text(files[index].size);
 		$("#file-info").find("#file-time").text(files[index].modified_time);
 		UIkit.modal($("#file-info")).show();
 	}
-	function deleteFile() {
-		let index = $("#file-context-menu").attr("data-index");
-		let files = JSON.parse(`{{info.files | json_encode() | safe }}`);
-		let file = files[index].name;
-		let path = `{{info.path | safe}}`;
+	function openRenameFile(){
+		$("#file-context-menu").hide();
+		let index = parseInt($("#file-context-menu").attr("data-index"));
+		let files = model_data.files;
+		let o_name = files[index].name;
+		$("#rename-file-dialog").find("#file-rename").val(o_name);
+		$("#rename-file-dialog").attr("data-index",index);
+		UIkit.modal($("#rename-file-dialog")).show();
+	}
+
+	function openRenameDir(){
+		$("#dir-context-menu").hide();
+		let index = parseInt($("#dir-context-menu").attr("data-index"));
+		let dirs = model_data.dirs;
+		let o_name = dirs[index].name;
+		$("#rename-dir-dialog").find("#dir-rename").val(o_name);
+		$("#rename-dir-dialog").attr("data-index",index);
+		UIkit.modal($("#rename-dir-dialog")).show();
+	}
+
+	function RenameFile(){
+		let index = parseInt($("#rename-file-dialog").attr("data-index"));
+		let files = model_data.files;
+		let o_name = files[index].name;
+		let n_name = $("#rename-file-dialog").find("#file-rename").val();
+		let path = current_path;
 		$.ajax({
-			url: '/delete',
+			url: '{{baseUrl | safe }}rename',
+			type: 'POST',
+			dataType: 'json',
+			//data: JSON.stringify({data:{status: "start"}}),
+			data: { o_name,n_name, path },
+			//data:{name:"a.jpeg",path:"/views/"},
+			cache: false,
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'  //multipart/form-data;boundary=--xxxxxxx   application/json
+			},
+			success: function (res) {
+				console.log(res);
+				if (res.code === 200) {
+					$("#rename-file-dialog").find("#file-rename").val("");
+					window.location.reload();
+				} else {
+					UIkit.notification(`${res.msg}`);
+				}
+			},
+			error: function (e) {
+
+			}
+		});
+	}
+
+	function RenameDir(){
+		let index = parseInt($("#rename-dir-dialog").attr("data-index"));
+		let dirs = model_data.dirs;
+		let o_name = dirs[index].name;
+		let n_name = $("#rename-dir-dialog").find("#dir-rename").val();
+		let path = current_path;
+		$.ajax({
+			url: '{{baseUrl | safe }}rename',
+			type: 'POST',
+			dataType: 'json',
+			//data: JSON.stringify({data:{status: "start"}}),
+			data: { o_name,n_name, path },
+			//data:{name:"a.jpeg",path:"/views/"},
+			cache: false,
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'  //multipart/form-data;boundary=--xxxxxxx   application/json
+			},
+			success: function (res) {
+				console.log(res);
+				if (res.code === 200) {
+					$("#rename-dir-dialog").find("#dir-rename").val("");
+					window.location.reload();
+				} else {
+					UIkit.notification(`${res.msg}`);
+				}
+			},
+			error: function (e) {
+
+			}
+		});
+	}
+
+	function deleteFile() {
+		$("#file-context-menu").hide();
+		let r = confirm("确定删除吗？");
+		if (!r){
+			return;
+		}
+		let index = parseInt($("#file-context-menu").attr("data-index"));
+		let files = model_data.files;
+		let file = files[index].name;
+		let path = current_path;
+		$.ajax({
+			url: '{{baseUrl | safe }}delete',
 			type: 'POST',
 			dataType: 'json',
 			//data: JSON.stringify({data:{status: "start"}}),
@@ -243,8 +454,92 @@
 			}
 		});
 	}
+	function createDir(){
+		let name = $("#create_dir_name").val();
+		name = name.trim();
+		if (name === ""){
+			UIkit.notification(`目录名不能为空`);
+			return;
+		}
+		$.ajax({
+			url: '{{baseUrl | safe }}createdir',
+			type: 'POST',
+			dataType: 'json',
+			//data: JSON.stringify({data:{status: "start"}}),
+			data: { "dir_name": name, path:current_path },
+			//data:{name:"a.jpeg",path:"/views/"},
+			cache: false,
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'  //multipart/form-data;boundary=--xxxxxxx   application/json
+			},
+			success: function (res) {
+				console.log(res);
+				if (res.code === 200) {
+					window.location.reload();
+				} else {
+					UIkit.notification(`${res.msg}`);
+				}
+			},
+			error: function (e) {
+
+			}
+		});
+	}
+	function openCreateDir(){
+		$("#create_dir_name").val("");
+		UIkit.modal($("#create-dir-dialog")).show();
+	}
+
+	function deleteDir() {
+		$("#dir-context-menu").hide();
+		let r = confirm("确定删除吗？");
+		if (!r){
+			return;
+		}
+		let index = parseInt($("#dir-context-menu").attr("data-index"));
+		//console.log(index);
+		let dirs = model_data.dirs;
+		let dir = dirs[index].name;
+		let path = current_path;
+		$.ajax({
+			url: '{{baseUrl | safe }}delete',
+			type: 'POST',
+			dataType: 'json',
+			//data: JSON.stringify({data:{status: "start"}}),
+			data: { name: dir, path },
+			//data:{name:"a.jpeg",path:"/views/"},
+			cache: false,
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'  //multipart/form-data;boundary=--xxxxxxx   application/json
+			},
+			success: function (res) {
+				console.log(res);
+				if (res.code === 200) {
+					window.location.reload();
+				} else {
+					UIkit.notification(`${res.msg}`);
+				}
+			},
+			error: function (e) {
+
+			}
+		});
+	}
+
+	function dirDetail(){
+		let index = parseInt($("#dir-context-menu").attr("data-index"));
+		console.log(index);
+		let dirs = model_data.dirs;
+		$("#dir-info").find("#detail-dir-name").text(dirs[index].name);
+		$("#dir-info").find("#detail-dir-size").text(dirs[index].size);
+		$("#dir-info").find("#detail-dir-time").text(dirs[index].modified_time);
+		UIkit.modal($("#dir-info")).show();
+	}
 </script>
 <style>
+	body{
+		overflow: hidden;
+	}
 	.icon-line {
 		margin-bottom: 3px;
 		text-align: center;
@@ -274,7 +569,7 @@
 		bottom: 25%;
 	}
 
-	#file-context-menu {
+	#file-context-menu, #blank-context-menu,#dir-context-menu {
 		display: none;
 		width: 100px;
 		position: absolute;

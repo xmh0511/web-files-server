@@ -14,7 +14,7 @@
 </head>
 
 <body>
-	<div>
+	<div class="fs-content">
 		{% if info.dirs | length > 0 or info.files | length > 0 %}
 		<div class="">
 			{% for dir in info.dirs %}
@@ -47,7 +47,11 @@
 		</div>
 		{% endif %}
 	</div>
-	<a href="" class="fixed-right uk-icon-button uk-margin-small-right" uk-icon="icon:cloud-upload;ratio:8"
+	<div class="fixed-right">
+		<a href="javascript:history.go(-1)" class="uk-icon-button uk-margin-small-right" uk-icon="reply"></a>
+		<a href="javascript:history.go(1)" class="uk-icon-button uk-margin-small-right" uk-icon="forward"></a>
+	</div>
+	<!-- <a href="" class="fixed-right uk-icon-button uk-margin-small-right" uk-icon="icon:cloud-upload;ratio:8"
 		uk-toggle="target: #offcanvas-flip"></a>
 	<div id="offcanvas-flip" uk-offcanvas="flip: true; overlay: true">
 		<div class="uk-offcanvas-bar">
@@ -65,7 +69,7 @@
 				<progress id="js-progressbar" class="uk-progress" value="0" max="100" hidden></progress>
 			</div>
 		</div>
-	</div>
+	</div> -->
 
 
 	<div id="file-context-menu" class="uk-width-1-2@s uk-width-2-5@m">
@@ -187,75 +191,79 @@
 		</div>
 	</div>
 
+	<div id="global-progress-container" class="progress-mask" hidden>
+		<progress id="html-progress" class="uk-progress" value="0" max="100" ></progress>
+	</div>
 </body>
 <script>
 	let model_data = JSON.parse(`{{info | json_encode() | safe }}`);
-	var bar = document.getElementById('js-progressbar');
 	let current_path = `{{info.path | safe}}`;
 
-	let upload_component = UIkit.upload('.js-upload', {
-		url: '{{baseUrl | safe }}upload',
-		multiple: true,
-		params: { path: "{{info.path | safe}}" },
-		name: "file",
-		multiple: true,
+	// var bar = document.getElementById('js-progressbar');
+	// let upload_component = UIkit.upload('.js-upload', {
+	// 	url: '{{baseUrl | safe }}upload',
+	// 	multiple: true,
+	// 	params: { path: "{{info.path | safe}}" },
+	// 	name: "file",
+	// 	multiple: true,
 
-		beforeSend: function () {
-			console.log('beforeSend', arguments);
-		},
-		beforeAll: function () {
-			console.log('beforeAll', arguments);
-		},
-		load: function () {
-			console.log('load', arguments);
-		},
-		error: function () {
-			console.log('error', arguments);
-		},
-		complete: function () {
-			console.log('complete', arguments);
-		},
+	// 	beforeSend: function () {
+	// 		console.log('beforeSend', arguments);
+	// 	},
+	// 	beforeAll: function () {
+	// 		console.log('beforeAll', arguments);
+	// 	},
+	// 	load: function () {
+	// 		console.log('load', arguments);
+	// 	},
+	// 	error: function () {
+	// 		console.log('error', arguments);
+	// 	},
+	// 	complete: function () {
+	// 		console.log('complete', arguments);
+	// 	},
 
-		loadStart: function (e) {
-			console.log('loadStart', arguments);
+	// 	loadStart: function (e) {
+	// 		console.log('loadStart', arguments);
 
-			bar.removeAttribute('hidden');
-			bar.max = e.total;
-			bar.value = e.loaded;
-		},
+	// 		bar.removeAttribute('hidden');
+	// 		bar.max = e.total;
+	// 		bar.value = e.loaded;
+	// 	},
 
-		progress: function (e) {
-			console.log('progress', arguments);
+	// 	progress: function (e) {
+	// 		console.log('progress', arguments);
 
-			bar.max = e.total;
-			bar.value = e.loaded;
-		},
+	// 		bar.max = e.total;
+	// 		bar.value = e.loaded;
+	// 	},
 
-		loadEnd: function (e) {
-			console.log('loadEnd', arguments);
+	// 	loadEnd: function (e) {
+	// 		console.log('loadEnd', arguments);
 
-			bar.max = e.total;
-			bar.value = e.loaded;
-		},
+	// 		bar.max = e.total;
+	// 		bar.value = e.loaded;
+	// 	},
 
-		completeAll: function (e) {
-			if (e.status === 200) {
-				let json = JSON.parse(e.responseText);
-				if (json.code === 200) {
-					UIkit.notification('上传成功');
-					setTimeout(() => {
-						window.location.reload();
-					}, 500);
-				} else if (json.code = 404) {
-					UIkit.notification(`${json.msg}`);
-				}
-			}
-			//window.location.reload();
+	// 	completeAll: function (e) {
+	// 		if (e.status === 200) {
+	// 			let json = JSON.parse(e.responseText);
+	// 			if (json.code === 200) {
+	// 				UIkit.notification('上传成功');
+	// 				setTimeout(() => {
+	// 					window.location.reload();
+	// 				}, 500);
+	// 			} else if (json.code = 404) {
+	// 				UIkit.notification(`${json.msg}`);
+	// 			}
+	// 		}
+	// 		//window.location.reload();
 
-			//alert('Upload Completed');
-		}
+	// 		//alert('Upload Completed');
+	// 	}
 
-	});
+	// });
+
 	function getMenuPos(left, top, dom) {
 		let menuHeight = dom.height();
 		let menuWidth = dom.width() + 30;
@@ -537,39 +545,79 @@
 		UIkit.modal($("#dir-info")).show();
 	}
 
-	$(function () {
-		$(document).on({
-			dragleave: function (e) {    //拖离 
-				e.preventDefault();
-				//console.log("dragleave");
-				//console.log(e.originalEvent);
-			},
-			drop: function (e) {  //拖后放 
-				e.preventDefault();
-				//console.log("drop");
-				//console.log(upload_component);
-				//console.log(e.originalEvent.dataTransfer);
-				// document.getElementById("file-drop-upload").dispatchEvent(new DragEvent('drop'),{
-				// 	originalEvent:{
-				// 		dataTransfer:e.originalEvent.dataTransfer
-				// 	}
-				// });
-			},
-			dragenter: function (e) {    //拖进 
-				e.preventDefault();
-				//console.log("dragenter");
-				UIkit.offcanvas("#offcanvas-flip").show();
-			},
-			dragover: function (e) {    //拖来拖去 
-				e.preventDefault();
-				//console.log("dragover")
+
+	var global_progress_container = document.getElementById("global-progress-container");
+	var global_progress = document.getElementById('html-progress');
+	UIkit.upload('html', {
+		url: '{{baseUrl | safe }}upload',
+		multiple: true,
+		params: { path: "{{info.path | safe}}" },
+		name: "file",
+		multiple: true,
+
+		beforeSend: function () {
+			console.log('beforeSend', arguments);
+		},
+		beforeAll: function () {
+			console.log('beforeAll', arguments);
+		},
+		load: function () {
+			console.log('load', arguments);
+		},
+		error: function () {
+			console.log('error', arguments);
+		},
+		complete: function () {
+			console.log('complete', arguments);
+		},
+
+		loadStart: function (e) {
+			console.log('loadStart', arguments);
+
+			global_progress_container.removeAttribute('hidden');
+			global_progress.max = e.total;
+			global_progress.value = e.loaded;
+		},
+
+		progress: function (e) {
+			console.log('progress', arguments);
+
+			bar.max = e.total;
+			bar.value = e.loaded;
+		},
+
+		loadEnd: function (e) {
+			console.log('loadEnd', arguments);
+
+			global_progress.max = e.total;
+			global_progress.value = e.loaded;
+		},
+
+		completeAll: function (e) {
+			if (e.status === 200) {
+				let json = JSON.parse(e.responseText);
+				if (json.code === 200) {
+					UIkit.notification('上传成功');
+					setTimeout(() => {
+						window.location.reload();
+					}, 500);
+				} else if (json.code = 404) {
+					UIkit.notification(`${json.msg}`);
+				}
 			}
-		});
-	})
+			//window.location.reload();
+
+			//alert('Upload Completed');
+		}
+
+	});
+
+
 </script>
 <style>
 	body {
 		overflow: hidden;
+		height: 100vh;
 	}
 
 	.icon-line {
@@ -594,6 +642,7 @@
 		width: 105px;
 		height: 75px;
 		overflow: hidden;
+		margin:10px 10px 10px 10px;
 	}
 
 	.fixed-right {
@@ -616,6 +665,24 @@
 
 	.info-list div {
 		margin-bottom: 5px;
+	}
+	.progress-mask{
+		position: absolute;
+		min-height: 100vh;
+		width:100%;
+		top:0px;
+		left: 0px;
+		background-color: rgba(0, 0, 0, 0.8);
+		justify-content: center;
+		display: flex;
+		align-items: center;
+	}
+	.progress-mask progress{
+		width:60%;
+	}
+	.fs-content{
+		overflow: auto;
+		height: 100%;
 	}
 </style>
 

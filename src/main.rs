@@ -1,5 +1,5 @@
 
-use salvo::{prelude::*};
+use salvo::{prelude::*, Catcher};
 
 use salvo::serve_static::StaticDir;
 
@@ -283,16 +283,30 @@ async fn rename(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorW
 	Ok(())
 }
 
+struct Handle404;
+impl Catcher for Handle404 {
+    fn catch(&self, _req: &Request, _depot: &Depot, res: &mut Response) -> bool {
+        if let Some(StatusCode::NOT_FOUND) = res.status_code() {
+            res.render(Redirect::other("/static"));
+            true
+        } else {
+            false
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
-    let mut tera = match Tera::new("views/**/*.html") {
-        Ok(t) => t,
-        Err(e) => {
-            println!("Parsing error(s): {}", e);
-            ::std::process::exit(1);
-        }
-    };
-    tera.autoescape_on(vec![]);
+
+	match std::fs::create_dir("static"){
+		Ok(_) => {},
+		Err(e) => {
+			if e.kind() != std::io::ErrorKind::AlreadyExists{
+				panic!("{e:?}");
+			}
+		},
+	};
+
     let auth_handler = BasicAuth::new(Validator);
     let web_file_router = Router::with_path("static/<**>").get(handle_static);
 	let upload_router  = Router::with_path("upload").post(upload);
@@ -315,7 +329,9 @@ async fn main() {
     let static_router =
         Router::with_path("public/<**>").get(StaticDir::new(["public"]).with_listing(true));
     let root_router = root_router.push(static_router);
+	let catchers: Vec<Box<dyn Catcher>> = vec![Box::new(Handle404)];
+	let service = Service::new(root_router).with_catchers(catchers);
     Server::new(TcpListener::bind("127.0.0.1:7878"))
-        .serve(root_router)
+        .serve(service)
         .await;
 }

@@ -192,7 +192,13 @@
 	</div>
 
 	<div id="global-progress-container" class="progress-mask" hidden>
-		<progress id="html-progress" class="uk-progress" value="0" max="100" ></progress>
+		<div class="progress-group">
+			<div class="progress-number">
+				<span id="progress-number-value"></span>
+				<span>%</span>
+			</div>
+			<progress id="html-progress" class="uk-progress" value="0" max="100" ></progress>
+		</div>
 	</div>
 </body>
 <script>
@@ -556,41 +562,59 @@
 		multiple: true,
 
 		beforeSend: function () {
-			console.log('beforeSend', arguments);
+			//console.log('beforeSend', arguments);
 		},
 		beforeAll: function () {
-			console.log('beforeAll', arguments);
+			//console.log('beforeAll', arguments);
 		},
 		load: function () {
-			console.log('load', arguments);
+			//console.log('load', arguments);
 		},
 		error: function () {
-			console.log('error', arguments);
+			//console.log('error', arguments);
 		},
 		complete: function () {
-			console.log('complete', arguments);
+			//console.log('complete', arguments);
 		},
 
 		loadStart: function (e) {
-			console.log('loadStart', arguments);
+			//console.log('loadStart', e);
 
 			global_progress_container.removeAttribute('hidden');
 			global_progress.max = e.total;
 			global_progress.value = e.loaded;
+			if(e.total == 0){
+				$("#progress-number-value").text(0.00);
+			}else{
+				let percent = ((e.loaded / e.total)*100).toFixed(2);
+				$("#progress-number-value").text(percent);
+			}
 		},
 
 		progress: function (e) {
-			console.log('progress', arguments);
-
-			bar.max = e.total;
-			bar.value = e.loaded;
-		},
-
-		loadEnd: function (e) {
-			console.log('loadEnd', arguments);
+			//console.log('progress', e);
 
 			global_progress.max = e.total;
 			global_progress.value = e.loaded;
+			if(e.total == 0){
+				$("#progress-number-value").text(0.00);
+			}else{
+				let percent = ((e.loaded / e.total)*100).toFixed(2);
+				$("#progress-number-value").text(percent);
+			}
+		},
+
+		loadEnd: function (e) {
+			//console.log('loadEnd', e);
+
+			global_progress.max = e.total;
+			global_progress.value = e.loaded;
+			if(e.total == 0){
+				$("#progress-number-value").text(0.00);
+			}else{
+				let percent = ((e.loaded / e.total)*100).toFixed(2);
+				$("#progress-number-value").text(percent);
+			}
 		},
 
 		completeAll: function (e) {
@@ -683,6 +707,21 @@
 	.fs-content{
 		overflow: auto;
 		height: 100%;
+	}
+	.progress-group{
+		position: relative;
+		width:50%;
+	}
+	.progress-number{
+		position: absolute;
+		top: 20px;
+		left:50%;
+		font-size: 15px;
+		line-height: 15px;
+		color:black;
+	}
+	#html-progress{
+		width:100%;
 	}
 </style>
 

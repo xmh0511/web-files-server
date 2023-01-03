@@ -6,17 +6,60 @@ use salvo::serve_static::StaticDir;
 use salvo::basic_auth::{BasicAuth, BasicAuthValidator};
 
 pub mod static_handler;
-use http::HeaderValue;
+use http::{HeaderValue, Method};
 
 use serde_json::json;
 use tera::Tera;
 use path_absolutize::*;
+use redis::{ AsyncCommands};
 
 
 use std::path::{Path, PathBuf};
 struct Validator;
 #[async_trait]
 impl BasicAuthValidator for Validator {
+    async fn validate(&self, username: &str, password: &str) -> bool {
+		if username == "admin" && password == "970252187"{
+          true
+		}else{
+			match redis::Client::open("redis://127.0.0.1/"){
+				Ok(client)=>{
+					let Ok(mut con) = client.get_async_connection().await else{
+						return false;
+					};
+			      let key = format!("fs_account.{username}");
+				  match con.get(key).await{
+					  Ok(v)=>{
+						 let v:Option<String> = v;
+						 match v {
+							Some(v)=>{
+								if v == password{
+									return true;
+								}else{
+									return false;
+								}
+							}
+							None=>{
+								return false;
+							}
+						 }
+					  }
+					  Err(_)=>{
+						return false;
+					  }
+				  }
+				}
+				Err(_)=>{
+					return false;
+				}
+			}
+		}
+    }
+}
+
+struct AdminValidator;
+#[async_trait]
+impl BasicAuthValidator for AdminValidator {
     async fn validate(&self, username: &str, password: &str) -> bool {
         username == "admin" && password == "970252187"
     }
@@ -283,6 +326,42 @@ async fn rename(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorW
 	Ok(())
 }
 
+#[handler]
+async fn admin(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorWrapper<true>>{
+	if req.method() == Method::GET{
+		let mut context = tera::Context::new();
+		context.insert("baseUrl", "/");
+		//println!("invocation {context:?}");
+		let mut tera = Tera::default();
+		tera.add_template_file("views/admin.html", Some("admin.html"))?;
+		let r = match tera.render("admin.html", &context) {
+			Ok(r) => r,
+			Err(e) => {
+				//println!("{e:?}");
+				//panic!("error")
+				return Err(anyhow::anyhow!("tera render error: {e:?}").into());
+			}
+		};
+		res.render(Text::Html(r));
+		Ok(())
+	}else{
+		let user:String = req.form("user").await.result()?;
+		let pass:String = req.form("pass").await.result()?;
+		let seconds:i64 = req.form("seconds").await.result()?;
+		//println!("{user},{pass},{seconds}");
+		let client = redis::Client::open("redis://127.0.0.1/")?;
+		let mut con = client.get_async_connection().await?;
+		let key = format!("fs_account.{user}");
+		if seconds !=-1 && seconds >0{
+			con.set_ex(key, pass, seconds as usize).await?;
+		}else{
+			con.set(key, pass).await?;
+		}
+		res.render(Text::Plain("OK"));
+		Ok(())
+	}
+}
+
 struct Handle404;
 impl Catcher for Handle404 {
     fn catch(&self, _req: &Request, _depot: &Depot, res: &mut Response) -> bool {
@@ -323,7 +402,11 @@ async fn main() {
 	let require_validate_router = require_validate_router.push(createdir_router);
 	let require_validate_router = require_validate_router.push(rename_router);
 
+	let admin_auth_handler = BasicAuth::new(AdminValidator);
+	let admin_router = Router::with_path("admin").hoop(admin_auth_handler).get(admin).post(admin);
+
 	let root_router = Router::new().push(require_validate_router);
+	let root_router = root_router.push(admin_router);
 	//let root_router = root_router.push(upload_router);
 
     let static_router =

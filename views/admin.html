@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Admin</title>
+	<link rel="shortcut icon" href="{{baseUrl | safe}}public/favicon.ico" type="image/x-icon">
+	<script src="{{baseUrl | safe }}public/uikit/js/uikit.min.js"></script>
+	<script src="{{baseUrl | safe }}public/uikit/js/uikit-icons.min.js"></script>
+	<link rel="stylesheet" href="{{baseUrl | safe }}public/uikit/css/uikit.min.css" />
+	<script src="{{baseUrl | safe }}public/jquery.min.js"></script>
+</head>
+<body>
+	<form method="POST" action="{{baseUrl | safe }}admin">
+		<div class="uk-margin">
+			<span class="label-name">用户名：</span>
+			<input class="uk-input uk-form-width-small" name="user" type="text" placeholder="用户名" aria-label="Small">
+		</div>
+		<div class="uk-margin">
+			<span class="label-name">密码：</span>
+			<input class="uk-input uk-form-width-small" name="pass" type="text" placeholder="密码" aria-label="Small">
+		</div>
+		<div class="uk-margin">
+			<span class="label-name">时效：</span>
+			<input class="uk-input uk-form-width-small" name="seconds" type="text" placeholder="时效(秒)" aria-label="Small">
+		</div>
+		<div class="uk-margin">
+			<button class="uk-button uk-button-default" type="submit">提交</button>
+		</div>
+	</form>
+</body>
+<style>
+	.label-name{
+		width: 80px;
+		display: inline-block;
+	}
+</style>
+</html>

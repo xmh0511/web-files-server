@@ -406,6 +406,7 @@
 			success: function (res) {
 				console.log(res);
 				if (res.code === 200) {
+					alert("分享成功");
 					window.location.reload();
 				} else {
 					UIkit.notification(`${res.msg}`);
@@ -436,7 +437,11 @@
 			success: function (res) {
 				console.log(res);
 				if (res.code === 200) {
-					window.location.reload();
+					alert("分享成功");
+					window.open(`{{baseUrl | safe }}public/${o_name}`);
+					setTimeout(()=>{
+						window.location.reload();
+					},800);
 				} else {
 					UIkit.notification(`${res.msg}`);
 				}

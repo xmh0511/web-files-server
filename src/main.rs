@@ -468,6 +468,15 @@ impl BasePath {
     }
 }
 
+struct HomePage(String);
+#[handler]
+impl HomePage{
+	async fn handle(&self, _req: & mut Request, _depot: & mut Depot, res: &mut Response, _ctrl: &mut FlowCtrl){
+		res.render(Redirect::other(format!("{0}/static",self.0)));
+	}
+}
+
+
 
 #[tokio::main]
 async fn main() {
@@ -504,7 +513,7 @@ async fn main() {
 
     let static_router = Router::with_path("public/<**>").get(StaticDir::new(["public"]).listing(true));
 
-	let root_router = Router::with_path(&config.route_base_path).hoop(BasePath{base_path:config.base_path.clone(),route_base_path:config.route_base_path.clone()}).push(static_router);
+	let root_router = Router::with_path(&config.route_base_path).hoop(BasePath{base_path:config.base_path.clone(),route_base_path:config.route_base_path.clone()}).get(HomePage(config.route_base_path.clone())).push(static_router);
 	let root_router = root_router.push(require_validate_router);
 	let root_router = root_router.push(admin_router);
 	//let root_router = root_router.push(upload_router);

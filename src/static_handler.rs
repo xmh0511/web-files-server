@@ -295,7 +295,7 @@ impl StaticDir {
             if let Ok(named_file) = builder.build().await {
                 return Ok(ResponseContent::File(named_file));
             } else {
-                return Err(ResponseError::StateError(StatusError::internal_server_error().with_summary("read file failed")));
+                return Err(ResponseError::StateError(StatusError::internal_server_error().summary("read file failed")));
             }
         } else if abs_path.is_dir() {
             // list the dir
@@ -331,7 +331,7 @@ impl StaticDir {
             let root = CurrentInfo::new(decode_url_path_safely(req_path), files, dirs);
 			return Ok(ResponseContent::Dir(T::to_list(&root)));
         }
-		return Err(ResponseError::StateError(StatusError::internal_server_error().with_summary("unknown context")));
+		return Err(ResponseError::StateError(StatusError::internal_server_error().summary("unknown context")));
     }
 }
 

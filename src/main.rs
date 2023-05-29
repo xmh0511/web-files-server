@@ -1,5 +1,5 @@
 
-use salvo::{prelude::*, Catcher};
+use salvo::{prelude::*, catcher::Catcher};
 
 use salvo::serve_static::StaticDir;
 
@@ -12,14 +12,19 @@ use serde_json::json;
 use tera::Tera;
 use path_absolutize::*;
 use redis::{ AsyncCommands};
-
+use config_file::FromConfigFile;
+use serde::Deserialize;
 
 use std::path::{Path, PathBuf};
-struct Validator;
+
+use fs_extra::dir::CopyOptions;
+struct Validator(Config);
 #[async_trait]
 impl BasicAuthValidator for Validator {
-    async fn validate(&self, username: &str, password: &str) -> bool {
-		if username == "admin" && password == "970252187"{
+    async fn validate(&self, username: &str, password: &str,_depot: &mut Depot) -> bool {
+		let name = &self.0.manage.name;
+		let pass = &self.0.manage.password;
+		if username == name && password == pass{
           true
 		}else{
 			match redis::Client::open("redis://127.0.0.1/"){
@@ -57,11 +62,13 @@ impl BasicAuthValidator for Validator {
     }
 }
 
-struct AdminValidator;
+struct AdminValidator(Config);
 #[async_trait]
 impl BasicAuthValidator for AdminValidator {
-    async fn validate(&self, username: &str, password: &str) -> bool {
-        username == "admin" && password == "970252187"
+    async fn validate(&self, username: &str, password: &str,_depot: &mut Depot) -> bool {
+		let name = &self.0.admin.name;
+		let pass = &self.0.admin.password;
+        username == name && password == pass
     }
 }
 
@@ -117,7 +124,7 @@ impl<const JSON:bool> Writer for AnyHowErrorWrapper<JSON> {
             });
             res.render(Text::Json(json.to_string()));
         }else{
-            res.set_status_code(StatusCode::BAD_REQUEST);
+            res.status_code(StatusCode::BAD_REQUEST);
             res.render(Text::Plain(self.0.to_string()));
         }
     }
@@ -133,7 +140,7 @@ impl<const JSON:bool,T: Into<anyhow::Error>> From<T> for AnyHowErrorWrapper<JSON
 async fn handle_static(
     req: &mut Request,
     res: &mut Response,
-    _depot: &mut Depot,
+    depot: &mut Depot,
 ) -> Result<(), AnyHowErrorWrapper> {
 	let is_preview = req.query::<bool>("preview").unwrap_or(false);
 	//println!("is_preview = {is_preview}");
@@ -162,7 +169,9 @@ async fn handle_static(
                 //let tera = depot.get::<Tera>("tera").unwrap();
                 let mut context = tera::Context::new();
                 context.insert("info", &list);
-				context.insert("baseUrl", "/");
+				let default = String::from("");
+				let base_path = depot.get::<String>("base_path").unwrap_or(&default);
+				context.insert("baseUrl", &base_path);
                 //println!("invocation {context:?}");
                 let mut tera = Tera::default();
                 tera.add_template_file("views/list.html", Some("list.html"))?;
@@ -183,8 +192,8 @@ async fn handle_static(
                 res.render(r);
                 return Ok(());
             }
-            static_handler::ResponseError::StateError(s) => {
-                res.set_status_error(s);
+            static_handler::ResponseError::StateError(_) => {
+                res.status_code(StatusCode::BAD_REQUEST);
                 return Ok(());
             }
         },
@@ -244,7 +253,8 @@ fn validate_path<const JSON:bool>(prefix_path:&str, target:&str)->Result<PathBuf
     //println!("{absolute_path}");
     let canonical_path = Path::new(&absolute_path);
     let static_path = Path::new("static").canonicalize()?;
-    let is_contain = canonical_path.starts_with(static_path);
+	let public_path = Path::new("public").canonicalize()?;
+    let is_contain = canonical_path.starts_with(static_path) || canonical_path.starts_with(public_path);
     if !is_contain {
         return Err(anyhow::anyhow!("invalid path that is not within the permitted root directory").into());
     }
@@ -327,10 +337,59 @@ async fn rename(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorW
 }
 
 #[handler]
-async fn admin(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorWrapper<true>>{
+async fn share(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorWrapper<true>>{
+	let o_name = req.form::<String>("name").await.result()?;
+    let path = req.form::<String>("path").await.result()?;
+	let kind = req.form::<String>("kind").await.result()?;
+	let o_complete_path = validate_path(&path, &o_name)?;
+	let n_complete_path = validate_path("/public/", &o_name)?;
+	if o_complete_path.exists(){
+		if &kind == "dir"{
+			let option = CopyOptions::default().overwrite(true);
+			match std::fs::create_dir(&n_complete_path){
+				Ok(_) => {},
+				Err(e) => {
+					if e.kind() != std::io::ErrorKind::AlreadyExists{
+						return Err(e.into());
+					}
+				},
+			};
+			//println!("{o_complete_path:?}, {n_complete_path:?}");
+			fs_extra::dir::copy(o_complete_path, "./public",&option)?;
+			let json = json!({
+				"code":200,
+			});
+			res.render(Text::Json(json.to_string()));
+		}else if &kind == "file"{
+			std::fs::copy(o_complete_path, n_complete_path)?;
+			let json = json!({
+				"code":200,
+			});
+			res.render(Text::Json(json.to_string()));
+		}else{
+			let json = json!({
+				"code":404,
+				"msg":"不支持的类型"
+			});
+			res.render(Text::Json(json.to_string()));
+		}
+	}else{
+		let json = json!({
+			"code":404,
+			"msg":"不存在该文件对象"
+		});
+		res.render(Text::Json(json.to_string()));
+	}
+	Ok(())
+}
+
+#[handler]
+async fn admin(req: &mut Request, res: &mut Response, depot: & mut Depot)-> Result<(), AnyHowErrorWrapper<true>>{
 	if req.method() == Method::GET{
 		let mut context = tera::Context::new();
-		context.insert("baseUrl", "/");
+		let default = String::from("");
+		let base_path = depot.get::<String>("base_path").unwrap_or(&default);
+		context.insert("baseUrl",&base_path);
 		//println!("invocation {context:?}");
 		let mut tera = Tera::default();
 		tera.add_template_file("views/admin.html", Some("admin.html"))?;
@@ -363,20 +422,56 @@ async fn admin(req: &mut Request, res: &mut Response)-> Result<(), AnyHowErrorWr
 }
 
 struct Handle404;
-impl Catcher for Handle404 {
-    fn catch(&self, _req: &Request, _depot: &Depot, res: &mut Response) -> bool {
-        if let Some(StatusCode::NOT_FOUND) = res.status_code() {
-            res.render(Redirect::other("/static"));
-            true
-        } else {
-            false
+
+#[handler]
+impl Handle404 {
+    async fn handle(&self, _req: & mut Request, _depot: & mut Depot, res: &mut Response, ctrl: &mut FlowCtrl) {
+        if let Some(StatusCode::NOT_FOUND) = res.status_code {
+			// let default = String::from("");
+			// let base_path = depot.get::<String>("route_base_path").unwrap_or(&default);
+            res.render(Text::Plain("page not found"));
+            ctrl.skip_rest();
         }
     }
 }
+#[derive(Deserialize,Clone)]
+struct AdminConfig{
+	name:String,
+	password:String
+}
+
+#[derive(Deserialize,Clone)]
+struct ManageConfig{
+	name:String,
+	password:String
+}
+
+#[derive(Deserialize,Clone)]
+struct Config{
+	bind:String,
+	base_path:String,
+	route_base_path:String,
+	admin:AdminConfig,
+	manage:ManageConfig
+}
+
+struct BasePath{
+	base_path:String,
+	route_base_path:String
+}
+#[handler]
+impl BasePath {
+    async fn handle(&self, req: & mut Request, depot: & mut Depot, res: &mut Response, ctrl: &mut FlowCtrl) {
+		depot.insert("base_path", self.base_path.clone());
+		depot.insert("route_base_path", self.route_base_path.clone());
+		ctrl.call_next(req, depot, res).await;
+    }
+}
+
 
 #[tokio::main]
 async fn main() {
-
+	let config:Config = FromConfigFile::from_config_file("./config.toml").expect("config file not found");
 	match std::fs::create_dir("static"){
 		Ok(_) => {},
 		Err(e) => {
@@ -386,12 +481,13 @@ async fn main() {
 		},
 	};
 
-    let auth_handler = BasicAuth::new(Validator);
+    let auth_handler = BasicAuth::new(Validator(config.clone()));
     let web_file_router = Router::with_path("static/<**>").get(handle_static);
 	let upload_router  = Router::with_path("upload").post(upload);
     let delete_router = Router::with_path("delete").post(delete);
 	let createdir_router = Router::with_path("createdir").post(create_directory);
 	let rename_router = Router::with_path("rename").post(rename);
+	let share_router = Router::with_path("share").post(share);
 
 	
     let require_validate_router = Router::new().hoop(auth_handler);
@@ -401,20 +497,21 @@ async fn main() {
     let require_validate_router = require_validate_router.push(delete_router);
 	let require_validate_router = require_validate_router.push(createdir_router);
 	let require_validate_router = require_validate_router.push(rename_router);
+	let require_validate_router = require_validate_router.push(share_router);
 
-	let admin_auth_handler = BasicAuth::new(AdminValidator);
+	let admin_auth_handler = BasicAuth::new(AdminValidator(config.clone()));
 	let admin_router = Router::with_path("admin").hoop(admin_auth_handler).get(admin).post(admin);
 
-	let root_router = Router::new().push(require_validate_router);
+    let static_router = Router::with_path("public/<**>").get(StaticDir::new(["public"]).listing(true));
+
+	let root_router = Router::with_path(&config.route_base_path).hoop(BasePath{base_path:config.base_path.clone(),route_base_path:config.route_base_path.clone()}).push(static_router);
+	let root_router = root_router.push(require_validate_router);
 	let root_router = root_router.push(admin_router);
 	//let root_router = root_router.push(upload_router);
 
-    let static_router =
-        Router::with_path("public/<**>").get(StaticDir::new(["public"]).with_listing(true));
-    let root_router = root_router.push(static_router);
-	let catchers: Vec<Box<dyn Catcher>> = vec![Box::new(Handle404)];
-	let service = Service::new(root_router).with_catchers(catchers);
-    Server::new(TcpListener::bind("127.0.0.1:7878"))
+	let service = Service::new(root_router).catcher(Catcher::default().hoop(Handle404));
+	let acceptor = TcpListener::new(&config.bind).bind().await;
+    Server::new(acceptor)
         .serve(service)
         .await;
 }

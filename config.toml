@@ -1,0 +1,10 @@
+bind = "0.0.0.0:5800"
+base_path = "/"
+route_base_path = ""
+[admin]
+name = "admin"
+password = "admin"
+
+[manage]
+name = "root"
+password = "root"
